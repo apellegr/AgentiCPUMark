@@ -3,6 +3,11 @@
 Scores are normalized against reference timings from a baseline system
 (AMD Ryzen 9 7950X, Python 3.12, Linux). A score of 1000 means the system
 matches the reference. Higher is better.
+
+Two composite scores are computed:
+- Single-Agent Speed: weighted geometric mean of single-threaded benchmarks
+- Multi-Agent Throughput: weighted geometric mean of multi-threaded benchmarks
+- Overall Composite: weighted geometric mean of all benchmarks
 """
 
 import math
@@ -18,17 +23,37 @@ REFERENCE_TIMINGS: dict[str, float] = {
     "tree_search": 3.0,
     "concurrent_dispatch": 2.0,
     "memory_pressure": 4.0,
+    "subprocess_spawning": 5.0,
+    "diff_patch": 2.0,
+    "html_parsing": 1.5,
+    "schema_validation": 2.0,
 }
 
 REFERENCE_SCORE = 1000
 
+# Weights for overall composite score (must sum to 1.0)
 WEIGHTS: dict[str, float] = {
-    "context_switching": 0.15,
-    "json_processing": 0.20,
-    "text_processing": 0.20,
-    "tree_search": 0.20,
-    "concurrent_dispatch": 0.15,
-    "memory_pressure": 0.10,
+    "context_switching": 0.10,
+    "json_processing": 0.15,
+    "text_processing": 0.12,
+    "tree_search": 0.12,
+    "concurrent_dispatch": 0.10,
+    "memory_pressure": 0.06,
+    "subprocess_spawning": 0.10,
+    "diff_patch": 0.10,
+    "html_parsing": 0.08,
+    "schema_validation": 0.07,
+}
+
+# Benchmarks that are primarily single-threaded (measures single-agent speed)
+SINGLE_AGENT_BENCHMARKS = {
+    "json_processing", "text_processing", "tree_search",
+    "diff_patch", "html_parsing", "schema_validation", "memory_pressure",
+}
+
+# Benchmarks that are primarily multi-threaded (measures multi-agent throughput)
+MULTI_AGENT_BENCHMARKS = {
+    "context_switching", "concurrent_dispatch", "subprocess_spawning",
 }
 
 
@@ -44,19 +69,14 @@ def compute_score(result: BenchmarkResult) -> float:
     return REFERENCE_SCORE * (ref_time / result.elapsed_seconds)
 
 
-def compute_composite_score(results: list[BenchmarkResult]) -> float:
-    """Compute the weighted geometric mean composite score.
-
-    Uses the geometric mean so that no single benchmark can dominate
-    the composite score through outlier performance.
-    """
-    if not results:
-        return 0.0
-
+def _weighted_geometric_mean(results: list[BenchmarkResult], benchmark_set: set[str] | None = None) -> float:
+    """Compute the weighted geometric mean score for a subset of benchmarks."""
     log_sum = 0.0
     weight_sum = 0.0
 
     for result in results:
+        if benchmark_set is not None and result.name not in benchmark_set:
+            continue
         weight = WEIGHTS.get(result.name, 0.0)
         if weight <= 0:
             continue
@@ -70,3 +90,18 @@ def compute_composite_score(results: list[BenchmarkResult]) -> float:
         return 0.0
 
     return math.exp(log_sum / weight_sum)
+
+
+def compute_composite_score(results: list[BenchmarkResult]) -> float:
+    """Compute the overall weighted geometric mean composite score."""
+    return _weighted_geometric_mean(results)
+
+
+def compute_single_agent_score(results: list[BenchmarkResult]) -> float:
+    """Compute the single-agent speed score (single-threaded benchmarks only)."""
+    return _weighted_geometric_mean(results, SINGLE_AGENT_BENCHMARKS)
+
+
+def compute_multi_agent_score(results: list[BenchmarkResult]) -> float:
+    """Compute the multi-agent throughput score (multi-threaded benchmarks only)."""
+    return _weighted_geometric_mean(results, MULTI_AGENT_BENCHMARKS)

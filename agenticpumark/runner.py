@@ -2,9 +2,8 @@
 
 import sys
 
-from agenticpumark.benchmarks import ALL_BENCHMARKS
+from agenticpumark.benchmarks import ALL_BENCHMARKS, THREADED_BENCHMARKS
 from agenticpumark.benchmarks.base import BenchmarkResult
-from agenticpumark.benchmarks.concurrent_dispatch import ConcurrentDispatchBenchmark
 
 
 class BenchmarkRunner:
@@ -12,7 +11,7 @@ class BenchmarkRunner:
 
     def __init__(
         self,
-        iterations: int = 3,
+        iterations: int = 5,
         max_threads: int = 8,
         verbose: bool = False,
     ):
@@ -42,9 +41,9 @@ class BenchmarkRunner:
 
         for name, bench_class in benchmarks_to_run.items():
             if self.verbose:
-                print(f"Running {name}...", file=sys.stderr)
+                print(f"Running {name} (warm-up + timed)...", file=sys.stderr)
 
-            if bench_class is ConcurrentDispatchBenchmark:
+            if bench_class in THREADED_BENCHMARKS:
                 bench = bench_class(max_threads=self.max_threads)
             else:
                 bench = bench_class()
@@ -53,6 +52,12 @@ class BenchmarkRunner:
             results.append(result)
 
             if self.verbose:
-                print(f"  {name}: {result.elapsed_seconds:.3f}s", file=sys.stderr)
+                s = result.stats
+                print(
+                    f"  {name}: {s.median:.3f}s "
+                    f"(mean={s.mean:.3f}s, stddev={s.stddev:.3f}s, "
+                    f"CV={s.cv:.1%}, runs={len(result.iterations)})",
+                    file=sys.stderr,
+                )
 
         return results

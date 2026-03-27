@@ -17,6 +17,8 @@ TOKEN_DIM = 64  # simplified embedding dimension
 NUM_QUERIES = 500
 HISTORY_ENTRIES = 10_000
 CACHE_SIZE = 50_000
+BURST_CYCLES = 30  # number of burst alloc/dealloc cycles
+BURST_SIZE = 5_000  # objects per burst
 
 
 class MemoryPressureBenchmark(BaseBenchmark):
@@ -94,5 +96,27 @@ class MemoryPressureBenchmark(BaseBenchmark):
             else:
                 compacted.append(dict(entry))
             ops += 1
+
+        # Phase 6: Burst allocation/deallocation cycles
+        # Real agents show 15.4x peak/avg memory ratio due to tool execution bursts.
+        # This phase simulates rapid alloc/dealloc of large working sets that happen
+        # when agents spawn tools, process results, then discard intermediates.
+        for cycle in range(BURST_CYCLES):
+            # Burst allocate: simulate tool result processing
+            burst_data: list[list[float]] = [
+                [rng.random() for _ in range(TOKEN_DIM * 2)]
+                for _ in range(BURST_SIZE)
+            ]
+            # Process the burst (simulate computing over tool results)
+            running_sum = [0.0] * (TOKEN_DIM * 2)
+            for vec in burst_data:
+                for j in range(len(running_sum)):
+                    running_sum[j] += vec[j]
+            # Extract a small summary and discard the rest
+            summary_vec = [s / BURST_SIZE for s in running_sum[:TOKEN_DIM]]
+            _ = hashlib.sha256(str(summary_vec).encode()).hexdigest()
+            # Burst deallocate: let the large list go out of scope
+            del burst_data
+            ops += BURST_SIZE
 
         return ops

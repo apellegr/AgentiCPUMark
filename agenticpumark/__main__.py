@@ -23,8 +23,8 @@ def main() -> None:
     parser.add_argument(
         "--iterations",
         type=int,
-        default=3,
-        help="Number of iterations per benchmark (default: 3)",
+        default=5,
+        help="Number of timed iterations per benchmark (default: 5)",
     )
     parser.add_argument(
         "--threads",
