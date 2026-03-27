@@ -10,6 +10,8 @@ from agenticpumark.benchmarks.subprocess_spawning import SubprocessSpawningBench
 from agenticpumark.benchmarks.diff_patch import DiffPatchBenchmark
 from agenticpumark.benchmarks.html_parsing import HtmlParsingBenchmark
 from agenticpumark.benchmarks.schema_validation import SchemaValidationBenchmark
+from agenticpumark.benchmarks.streaming_parse import StreamingParseBenchmark
+from agenticpumark.benchmarks.code_edit_apply import CodeEditApplyBenchmark
 
 ALL_BENCHMARKS = {
     "context_switching": ContextSwitchingBenchmark,
@@ -22,6 +24,8 @@ ALL_BENCHMARKS = {
     "diff_patch": DiffPatchBenchmark,
     "html_parsing": HtmlParsingBenchmark,
     "schema_validation": SchemaValidationBenchmark,
+    "streaming_parse": StreamingParseBenchmark,
+    "code_edit_apply": CodeEditApplyBenchmark,
 }
 
 # Benchmarks that require max_threads parameter

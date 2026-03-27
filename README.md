@@ -6,7 +6,7 @@ A CPU benchmark designed to measure performance on workloads characteristic of A
 
 AI agents (like coding assistants, autonomous research tools, and tool-using LLM systems) stress CPUs differently than traditional benchmarks measure. Research shows that **tool processing on CPUs accounts for 50-90% of total latency** in agentic workloads ([Georgia Tech/Intel, 2025](https://arxiv.org/abs/2511.00739)), making the CPU the actual bottleneck — not the GPU.
 
-Agent workloads involve rapid context switching, heavy JSON serialization, large-text manipulation, tree-search planning, concurrent tool dispatch, subprocess spawning, diff computation, HTML parsing, schema validation, and memory-intensive context management — often all interleaved.
+Agent workloads involve rapid context switching, heavy JSON serialization, large-text manipulation, tree-search planning, concurrent tool dispatch, subprocess spawning, diff computation, HTML parsing, schema validation, streaming response parsing, code edit application, and memory-intensive context management — often all interleaved.
 
 **AgentiCPUMark** targets these specific workload patterns to give a realistic picture of how a CPU performs when running AI agent infrastructure.
 
@@ -22,6 +22,8 @@ Agent workloads involve rapid context switching, heavy JSON serialization, large
 | **Diff/Patch** | Line-by-line comparison, unified diff generation, and patch application |
 | **HTML Parsing** | DOM tree construction, CSS-like queries, and HTML-to-markdown conversion |
 | **Schema Validation** | JSON Schema compilation, validation, and malformed JSON repair |
+| **Streaming Parse** | SSE stream parsing with fragmented tool-call JSON accumulation |
+| **Code Edit Apply** | Exact substring search, uniqueness verification, and edit application |
 | **Memory Pressure** | Large working-set manipulation, burst alloc/dealloc, context window management |
 
 ### Multi-Agent Throughput (concurrent, multi-threaded workloads)
@@ -106,16 +108,18 @@ The geometric mean prevents any single benchmark from dominating through outlier
 
 | Benchmark | Weight |
 |---|---|
-| JSON Processing | 15% |
-| Text Processing | 12% |
-| Tree Search | 12% |
-| Diff/Patch | 10% |
+| JSON Processing | 12% |
+| Text Processing | 10% |
+| Tree Search | 10% |
 | Subprocess Spawning | 10% |
-| Context Switching | 10% |
-| Concurrent Dispatch | 10% |
-| HTML Parsing | 8% |
-| Schema Validation | 7% |
-| Memory Pressure | 6% |
+| Context Switching | 8% |
+| Concurrent Dispatch | 8% |
+| Diff/Patch | 8% |
+| Streaming Parse | 8% |
+| Code Edit Apply | 8% |
+| HTML Parsing | 7% |
+| Schema Validation | 6% |
+| Memory Pressure | 5% |
 
 Weights reflect the relative frequency and CPU cost of each workload pattern in real agent systems, informed by profiling data from the [AgentCgroup](https://arxiv.org/abs/2602.09345) and [CPU-Centric Agentic AI](https://arxiv.org/abs/2511.00739) research.
 
@@ -148,6 +152,20 @@ Weights reflect the relative frequency and CPU cost of each workload pattern in 
   (Reference: 1000 = AMD Ryzen 9 7950X | Higher is better)
 ===========================================================================
 ```
+
+## How Benchmarks Were Identified
+
+The initial benchmark suite (v0.1.0–v0.2.0) was designed from published research:
+- [A CPU-Centric Perspective on Agentic AI](https://arxiv.org/abs/2511.00739) (Georgia Tech/Intel) — profiled five agentic workloads and found CPU tool processing accounts for 50-90% of total latency
+- [AgentCgroup](https://arxiv.org/abs/2602.09345) — measured OS-level resource usage of AI agents, revealing 15.4x peak/avg memory ratios and burst-silence CPU utilization patterns
+
+Two additional benchmarks (**Streaming Parse** and **Code Edit Apply**) were added after **live introspection of Claude Code** (Anthropic's AI coding agent). We ran Claude Code on the AgentiCPUMark repo itself and traced its behavior:
+
+- **Streaming Parse**: Claude Code receives LLM responses as Server-Sent Event (SSE) streams. Tool call arguments arrive as `input_json_delta` fragments — partial JSON strings that the client must accumulate chunk-by-chunk, attempting a `JSON.parse()` on every fragment to detect completion. Profiling showed this is the agent's main hot loop, running continuously during every API response. Multiple sub-agents can stream in parallel, multiplexing fragment accumulation across independent sessions. This pattern is universal across agent clients (Cursor, Copilot, etc.) and was not covered by our existing JSON Processing benchmark, which tests complete serialize/deserialize cycles rather than incremental fragment assembly.
+
+- **Code Edit Apply**: Claude Code's Edit tool applies changes via exact substring matching, not traditional diff/patch. It loads the entire file, searches for an `old_string`, verifies the match is **unique** (requiring a second full scan), snapshots the original for undo, and applies the replacement. This is fundamentally different from the LCS-based diff computation in our Diff/Patch benchmark. For large files, the uniqueness scan is expensive. When the target string isn't unique, the agent must extend context by including surrounding lines and re-scan — a pattern of iteratively widening substring searches. Agents typically chain 5-20 such edits per task.
+
+Both patterns were confirmed by measuring Claude Code's client-side overhead across multi-tool tasks (34ms/turn client processing, 7-22 turns per task).
 
 ## Design Principles
 
