@@ -24,6 +24,7 @@ Agent workloads involve rapid context switching, heavy JSON serialization, large
 | **Schema Validation** | JSON Schema compilation, validation, and malformed JSON repair |
 | **Streaming Parse** | SSE stream parsing with fragmented tool-call JSON accumulation |
 | **Code Edit Apply** | Exact substring search, uniqueness verification, and edit application |
+| **Agentic Loop** | Full Glob->Grep->Read->Edit->Verify cycle with growing conversation state |
 | **Memory Pressure** | Large working-set manipulation, burst alloc/dealloc, context window management |
 
 ### Multi-Agent Throughput (concurrent, multi-threaded workloads)
@@ -108,16 +109,17 @@ The geometric mean prevents any single benchmark from dominating through outlier
 
 | Benchmark | Weight |
 |---|---|
-| JSON Processing | 12% |
-| Text Processing | 10% |
-| Tree Search | 10% |
-| Subprocess Spawning | 10% |
-| Context Switching | 8% |
-| Concurrent Dispatch | 8% |
-| Diff/Patch | 8% |
-| Streaming Parse | 8% |
-| Code Edit Apply | 8% |
-| HTML Parsing | 7% |
+| Agentic Loop | 13% |
+| JSON Processing | 10% |
+| Subprocess Spawning | 9% |
+| Text Processing | 8% |
+| Tree Search | 8% |
+| Context Switching | 7% |
+| Concurrent Dispatch | 7% |
+| Diff/Patch | 7% |
+| Streaming Parse | 7% |
+| Code Edit Apply | 7% |
+| HTML Parsing | 6% |
 | Schema Validation | 6% |
 | Memory Pressure | 5% |
 
@@ -166,6 +168,19 @@ Two additional benchmarks (**Streaming Parse** and **Code Edit Apply**) were add
 - **Code Edit Apply**: Claude Code's Edit tool applies changes via exact substring matching, not traditional diff/patch. It loads the entire file, searches for an `old_string`, verifies the match is **unique** (requiring a second full scan), snapshots the original for undo, and applies the replacement. This is fundamentally different from the LCS-based diff computation in our Diff/Patch benchmark. For large files, the uniqueness scan is expensive. When the target string isn't unique, the agent must extend context by including surrounding lines and re-scan — a pattern of iteratively widening substring searches. Agents typically chain 5-20 such edits per task.
 
 Both patterns were confirmed by measuring Claude Code's client-side overhead across multi-tool tasks (34ms/turn client processing, 7-22 turns per task).
+
+The **Agentic Loop** benchmark was added after a deeper study of Claude Code's behavior *when writing code*. We ran five different coding tasks (small feature, test file creation, multi-file refactor, bug fix, complex multi-file feature) and traced every tool call, turn count, token flow, and timing:
+
+```
+Task Type         | Turns | Wall(s) | Input Tokens | Output Tokens
+Small feature     |   9   |   32    |    132K      |     1.7K
+Test file (new)   |  23   |  155    |    559K      |     6.2K
+Multi-file refact |  10   |   24    |    101K      |     1.1K
+Bug find+fix      |   3   |   16    |     52K      |     0.5K
+Complex feature   |  30   |  206    |    801K      |     8.4K
+```
+
+Every task followed the same computational cycle: **Glob** (discover project structure) -> **Grep** (find symbols) -> **Read** (load file) -> **Edit** (substring search + uniqueness check + replace) -> **Bash** (verify with tests) -> **Serialize** (append results to growing conversation history) -> loop. The critical insight is that conversation state grows monotonically — turn 1 serializes ~50K tokens to JSON; turn 30 serializes ~800K tokens. The **entire history** is re-serialized on every turn for API calls and session persistence, making later turns progressively more expensive. No other benchmark captures this growing-context serialization pressure combined with real file I/O, regex search, and edit application in a single integrated workload.
 
 ## Design Principles
 

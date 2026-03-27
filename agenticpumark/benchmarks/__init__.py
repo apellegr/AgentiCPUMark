@@ -12,6 +12,7 @@ from agenticpumark.benchmarks.html_parsing import HtmlParsingBenchmark
 from agenticpumark.benchmarks.schema_validation import SchemaValidationBenchmark
 from agenticpumark.benchmarks.streaming_parse import StreamingParseBenchmark
 from agenticpumark.benchmarks.code_edit_apply import CodeEditApplyBenchmark
+from agenticpumark.benchmarks.agentic_loop import AgenticLoopBenchmark
 
 ALL_BENCHMARKS = {
     "context_switching": ContextSwitchingBenchmark,
@@ -26,6 +27,7 @@ ALL_BENCHMARKS = {
     "schema_validation": SchemaValidationBenchmark,
     "streaming_parse": StreamingParseBenchmark,
     "code_edit_apply": CodeEditApplyBenchmark,
+    "agentic_loop": AgenticLoopBenchmark,
 }
 
 # Benchmarks that require max_threads parameter

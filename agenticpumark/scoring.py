@@ -29,31 +29,33 @@ REFERENCE_TIMINGS: dict[str, float] = {
     "schema_validation": 2.0,
     "streaming_parse": 1.5,
     "code_edit_apply": 2.0,
+    "agentic_loop": 3.0,
 }
 
 REFERENCE_SCORE = 1000
 
 # Weights for overall composite score (must sum to 1.0)
 WEIGHTS: dict[str, float] = {
-    "context_switching": 0.08,
-    "json_processing": 0.12,
-    "text_processing": 0.10,
-    "tree_search": 0.10,
-    "concurrent_dispatch": 0.08,
+    "context_switching": 0.07,
+    "json_processing": 0.10,
+    "text_processing": 0.08,
+    "tree_search": 0.08,
+    "concurrent_dispatch": 0.07,
     "memory_pressure": 0.05,
-    "subprocess_spawning": 0.10,
-    "diff_patch": 0.08,
-    "html_parsing": 0.07,
+    "subprocess_spawning": 0.09,
+    "diff_patch": 0.07,
+    "html_parsing": 0.06,
     "schema_validation": 0.06,
-    "streaming_parse": 0.08,
-    "code_edit_apply": 0.08,
+    "streaming_parse": 0.07,
+    "code_edit_apply": 0.07,
+    "agentic_loop": 0.13,
 }
 
 # Benchmarks that are primarily single-threaded (measures single-agent speed)
 SINGLE_AGENT_BENCHMARKS = {
     "json_processing", "text_processing", "tree_search",
     "diff_patch", "html_parsing", "schema_validation", "memory_pressure",
-    "streaming_parse", "code_edit_apply",
+    "streaming_parse", "code_edit_apply", "agentic_loop",
 }
 
 # Benchmarks that are primarily multi-threaded (measures multi-agent throughput)
